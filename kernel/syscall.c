@@ -126,7 +126,9 @@ static uint64 (*syscalls[])(void) = {
     [SYS_close] sys_close,
     [SYS_trace] sys_trace,
 };
-
+static char *syscall_names[] = {
+    "fork", "exit", "wait", "pipe", "read", "kill", "exec", "fstat", "chdir", "dup", "getpid", "sbrk",
+    "sleep", "uptime", "open", "write", "mknod", "unlink", "link", "mkdir", "close", "trace"};
 void syscall(void)
 {
   int num;
@@ -135,7 +137,15 @@ void syscall(void)
   num = p->trapframe->a7;
   if (num > 0 && num < NELEM(syscalls) && syscalls[num])
   {
-    p->trapframe->a0 = syscalls[num]();
+    // 这里的调用系统函数的入口 sysproce里面的系统调用的具体实现
+    // 通过系统调用号，来看哪一个系统调用需要运行 num = p->trapframe->a7;
+
+    p->trapframe->a0 = syscalls[num](); // 这里就是执行了函数了  只是对函数集合的调用不熟悉而言
+    int trace_mask = p->trace_mask;
+    if ((trace_mask >> num) & 1)
+    {
+      printf("%d: syscall %s -> %d\n", p->pid, syscall_names[num], p->trapframe->a0);
+    }
   }
   else
   {

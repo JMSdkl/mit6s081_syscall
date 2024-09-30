@@ -102,6 +102,12 @@ sys_uptime(void)
 uint64
 sys_trace(void)
 {
-  printf("sys_trace hi\n");
+  int mask; // 用户态传过来的入参
+  if (argint(0, &mask) < 0)
+    return -1;
+  printf("sys_trace hi: n is %d\n", mask);
+  struct proc *p = myproc();
+  p->trace_mask = mask; // 以共享内存的方式传输过去了
+
   return 0;
 }
