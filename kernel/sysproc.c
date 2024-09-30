@@ -102,7 +102,7 @@ sys_uptime(void)
 uint64
 sys_trace(void)
 {
-  int mask; // 用户态传过来的入参
+  long mask; // 用户态传过来的入参
   if (argint(0, &mask) < 0)
     return -1;
   printf("sys_trace hi: n is %d\n", mask);
