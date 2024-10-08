@@ -6,6 +6,7 @@
 #include "memlayout.h"
 #include "spinlock.h"
 #include "proc.h"
+#include "sysinfo.h"
 
 uint64
 sys_exit(void)
@@ -115,5 +116,14 @@ uint64
 sys_sysinfo(void)
 {
   printf("sys_sysinfo hi\r\n");
+  struct sysinfo info;
+  struct proc *p = myproc();
+  uint64 addr;
+  info.nproc = -1;
+  info.freemem = -2;
+  if (argaddr(0, &addr) < 0) // 用这个接收入参
+    return -1;
+  if (copyout(p->pagetable, addr, (char *)&info, sizeof(info)) < 0) // 将结果放到addr里面
+    return -1;
   return 0;
 }
