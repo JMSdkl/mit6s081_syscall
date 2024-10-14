@@ -7,7 +7,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "sysinfo.h"
-
+uint64 acquire_freemem();
 uint64
 sys_exit(void)
 {
@@ -119,9 +119,9 @@ sys_sysinfo(void)
   struct sysinfo info;
   struct proc *p = myproc();
   uint64 addr;
-  info.nproc = -1;
-  info.freemem = -2;
-  if (argaddr(0, &addr) < 0) // 用这个接收入参
+  info.nproc = acquire_nproc();     // 当前进程的数
+  info.freemem = acquire_freemem(); // 空闲内存大小
+  if (argaddr(0, &addr) < 0)        // 用这个接收入参
     return -1;
   if (copyout(p->pagetable, addr, (char *)&info, sizeof(info)) < 0) // 将结果放到addr里面
     return -1;
