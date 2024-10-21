@@ -40,7 +40,7 @@ void ugetpid_test()
         exit(1);
       continue;
     }
-    if (getpid() != ugetpid())
+    if (getpid() != ugetpid()) // 这里的 getpid显然是一个系统调用来的
       err("missmatched PID");
     exit(0);
   }
