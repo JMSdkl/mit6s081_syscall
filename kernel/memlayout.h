@@ -70,11 +70,11 @@
 //   TRAPFRAME (p->trapframe, used by the trampoline)
 //   TRAMPOLINE (the same page as in the kernel)
 #define TRAPFRAME (TRAMPOLINE - PGSIZE)
-#ifdef LAB_PGTBL
+// #ifdef LAB_PGTBL
 #define USYSCALL (TRAPFRAME - PGSIZE)
 
-struct usyscall
+struct usyscall // 在TRAPFRAME这里的下面分配一个页大小，作为缓存
 {
   int pid; // Process ID
 };
-#endif
+// #endif
