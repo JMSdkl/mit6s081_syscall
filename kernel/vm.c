@@ -465,7 +465,7 @@ void vmprintf_helper(pagetable_t pagetable, int depth)
     if (pte & PTE_V)
     { // 如果是有效的页表项
       printf("%s%d: pte %p pa %p\n", indent[depth], i, pte, PTE2PA(pte));
-      if ((pte & (PTE_R | PTE_W | PTE_V)) == 0)
+      if ((pte & (PTE_R | PTE_W | PTE_X)) == 0)
       { //// 此条件等于该pte不是终末层, 而是指向下一层
         uint64 child = PTE2PA(pte);
         vmprintf_helper((pagetable_t)child, depth + 1); // 递归的找下一层，直到找到所有层为止
