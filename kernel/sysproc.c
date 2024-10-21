@@ -91,11 +91,13 @@ int sys_pgaccess(void)
     return -1;
   if (argint(2, &bitmask) < 0)
     return -1;
-  int res = 0x1111;
-  if (copyout(p->pagetable, bitmask, (char *)&res, sizeof(res)))
-  {
-    return -1;
-  }
+  // int res = 0x1111;
+  // if (copyout(p->pagetable, bitmask, (char *)&res, sizeof(res)))
+  // {
+  //   return -1;
+  // }
+  bitmask = 0x01;
+  printf("kenel bitmask %x", bitmask);
   return 0;
 }
 // #endif
