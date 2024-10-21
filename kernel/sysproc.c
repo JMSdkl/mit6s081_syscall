@@ -1,22 +1,20 @@
 #include "types.h"
 #include "riscv.h"
+#include "param.h"
 #include "defs.h"
 #include "date.h"
-#include "param.h"
 #include "memlayout.h"
 #include "spinlock.h"
 #include "proc.h"
-#include "sysinfo.h"
-uint64 acquire_freemem();
-uint64 acquire_nproc();
+
 uint64
 sys_exit(void)
 {
   int n;
-  if (argint(0, &n) < 0)
+  if(argint(0, &n) < 0)
     return -1;
   exit(n);
-  return 0; // not reached
+  return 0;  // not reached
 }
 
 uint64
@@ -35,7 +33,7 @@ uint64
 sys_wait(void)
 {
   uint64 p;
-  if (argaddr(0, &p) < 0)
+  if(argaddr(0, &p) < 0)
     return -1;
   return wait(p);
 }
@@ -46,10 +44,11 @@ sys_sbrk(void)
   int addr;
   int n;
 
-  if (argint(0, &n) < 0)
+  if(argint(0, &n) < 0)
     return -1;
+  
   addr = myproc()->sz;
-  if (growproc(n) < 0)
+  if(growproc(n) < 0)
     return -1;
   return addr;
 }
@@ -60,14 +59,13 @@ sys_sleep(void)
   int n;
   uint ticks0;
 
-  if (argint(0, &n) < 0)
+
+  if(argint(0, &n) < 0)
     return -1;
   acquire(&tickslock);
   ticks0 = ticks;
-  while (ticks - ticks0 < n)
-  {
-    if (myproc()->killed)
-    {
+  while(ticks - ticks0 < n){
+    if(myproc()->killed){
       release(&tickslock);
       return -1;
     }
@@ -77,12 +75,22 @@ sys_sleep(void)
   return 0;
 }
 
+
+#ifdef LAB_PGTBL
+int
+sys_pgaccess(void)
+{
+  // lab pgtbl: your code here.
+  return 0;
+}
+#endif
+
 uint64
 sys_kill(void)
 {
   int pid;
 
-  if (argint(0, &pid) < 0)
+  if(argint(0, &pid) < 0)
     return -1;
   return kill(pid);
 }
@@ -98,33 +106,4 @@ sys_uptime(void)
   xticks = ticks;
   release(&tickslock);
   return xticks;
-}
-
-// 加入一个 trace function
-uint64
-sys_trace(void)
-{
-  int mask; // 用户态传过来的入参
-  if (argint(0, &mask) < 0)
-    return -1;
-  printf("sys_trace hi: n is %d\n", mask);
-  struct proc *p = myproc();
-  p->trace_mask = mask; // 以共享内存的方式传输过去了
-
-  return 0;
-}
-uint64
-sys_sysinfo(void)
-{
-  printf("sys_sysinfo hi\r\n");
-  struct sysinfo info;
-  struct proc *p = myproc();
-  uint64 addr;
-  info.nproc = acquire_nproc();     // 当前进程的数
-  info.freemem = acquire_freemem(); // 空闲内存大小
-  if (argaddr(0, &addr) < 0)        // 用这个接收入参
-    return -1;
-  if (copyout(p->pagetable, addr, (char *)&info, sizeof(info)) < 0) // 将结果放到addr里面
-    return -1;
-  return 0;
 }
