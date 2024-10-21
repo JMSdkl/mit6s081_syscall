@@ -84,20 +84,20 @@ int sys_pgaccess(void)
   int len;
   uint64 addr;
   int bitmask;
-  // struct proc *p = myproc(); // 获取当前进程
+  struct proc *p = myproc(); // 获取当前进程
   if (argaddr(0, &addr) < 0)
     return -1;
   if (argint(1, &len) < 0)
     return -1;
   if (argint(2, &bitmask) < 0)
     return -1;
-  // int res = 0x1111;
-  // if (copyout(p->pagetable, bitmask, (char *)&res, sizeof(res)))
-  // {
-  //   return -1;
-  // }
-  bitmask = 0x01;
-  printf("kenel bitmask %x", bitmask);
+  int res = 0x1111;
+  if (copyout(p->pagetable, bitmask, (char *)&res, sizeof(res)))
+  {
+    return -1;
+  }
+  // bitmask = 0x01;
+  // printf("kenel bitmask %x", bitmask);//这样子改，确实用户那边获得不了这个bitmask
   return 0;
 }
 // #endif
