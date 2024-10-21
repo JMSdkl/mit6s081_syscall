@@ -85,11 +85,11 @@ int sys_pgaccess(void)
   uint64 addr;
   int bitmask;
   struct proc *p = myproc(); // 获取当前进程
-  if (argint(0, &len) < 0)
+  if (argaddr(0, &addr) < 0)
     return -1;
-  if (argaddr(1, &addr) < 0)
+  if (argint(1, &len) < 0)
     return -1;
-  if (argaddr(2, &bitmask) < 0)
+  if (argint(2, &bitmask) < 0)
     return -1;
   int res = 0x1111;
   if (copyout(p->pagetable, bitmask, (char *)&res, sizeof(res)))
