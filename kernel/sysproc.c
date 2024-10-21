@@ -84,7 +84,7 @@ int sys_pgaccess(void)
   int len;
   uint64 addr;
   int bitmask;
-  struct proc *p = myproc(); // 获取当前进程
+  // struct proc *p = myproc(); // 获取当前进程
   if (argaddr(0, &addr) < 0)
     return -1;
   if (argint(1, &len) < 0)
