@@ -84,14 +84,24 @@ int sys_pgaccess(void)
   int len;
   uint64 addr;
   int bitmask;
-  struct proc *p = myproc(); // 获取当前进程
   if (argaddr(0, &addr) < 0)
     return -1;
   if (argint(1, &len) < 0)
     return -1;
   if (argint(2, &bitmask) < 0)
     return -1;
-  int res = 0x1111;
+  if (len > 32 || len < 0)
+  {
+    return -1;
+  }
+  int res = 0;
+  struct proc *p = myproc(); // 获取当前进程
+  for (int i = 0; i < len; i++)
+  {
+    int va = addr + i * PGSIZE; // 计算虚拟地址以及他后面的 32个虚拟地址
+    int abit = vmpgaccess(p->pagetable, va);
+    res = res | abit << i;
+  }
   if (copyout(p->pagetable, bitmask, (char *)&res, sizeof(res)))
   {
     return -1;

@@ -81,10 +81,10 @@ walk(pagetable_t pagetable, uint64 va, int alloc)
   if (va >= MAXVA)
     panic("walk");
 
-  for (int level = 2; level > 0; level--)
+  for (int level = 2; level > 0; level--) // 三级页表索引
   {
     pte_t *pte = &pagetable[PX(level, va)];
-    if (*pte & PTE_V)
+    if (*pte & PTE_V) // 这个地址无效的时候，在下面给这个地址分配页表
     {
       pagetable = (pagetable_t)PTE2PA(*pte);
     }
@@ -92,11 +92,11 @@ walk(pagetable_t pagetable, uint64 va, int alloc)
     {
       if (!alloc || (pagetable = (pde_t *)kalloc()) == 0)
         return 0;
-      memset(pagetable, 0, PGSIZE);
+      memset(pagetable, 0, PGSIZE); // 在下面给这个地址分配页表
       *pte = PA2PTE(pagetable) | PTE_V;
     }
   }
-  return &pagetable[PX(0, va)];
+  return &pagetable[PX(0, va)]; // 返回物理地址 页表页
 }
 
 // Look up a virtual address, return the physical address,
@@ -477,4 +477,23 @@ void vmprint(pagetable_t pagetable)
 {
   printf("Virtual memory map:\n");
   vmPrintHelper(pagetable, 1);
+}
+int vmpgaccess(pagetable_t pagetable, uint64 va)
+{
+  pte_t *pte;
+
+  if (va >= MAXVA)
+    return 0;
+
+  pte = walk(pagetable, va, 0);
+  if (pte == 0)
+    return 0;
+
+  if ((*pte & PTE_A) != 0)
+  {
+    *pte = *pte & (~PTE_A); // 清除第6个标志位
+    return 1;
+  }
+
+  return 0;
 }
