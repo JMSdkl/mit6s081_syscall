@@ -14,7 +14,7 @@ struct proc *initproc;
 
 int nextpid = 1;
 struct spinlock pid_lock;
-
+extern char etext[]; // kernel.ld sets this to end of kernel code.
 extern void forkret(void);
 static void freeproc(struct proc *p);
 
@@ -53,7 +53,7 @@ void procinit(void)
   for (p = proc; p < &proc[NPROC]; p++)
   {
     initlock(&p->lock, "proc");
-    p->kstack = KSTACK((int)(p - proc));
+    // p->kstack = KSTACK((int)(p - proc));
   }
 }
 
@@ -149,9 +149,27 @@ found:
     release(&p->lock);
     return 0;
   }
+  // 添加kernel pagetable
+  p->kernelPagetable = proc_kernelPagetable(p);
+  if (p->kernelPagetable == 0)
+  {
+    freeproc(p);
+    release(&p->lock);
+    return 0;
+  }
+  // 添加内核栈
+  char *pa = kalloc();
+  if (pa == 0)
+  {
+    panic("kalloc");
+  }
+  uint64 va = KSTACK((int)(p - proc));
+  // 添加kernel stack的映射到用户的kernel pagetable里
+  uvmmap(p->kernelPagetable, va, (uint64)pa, PGSIZE, PTE_R | PTE_W);
+  p->kstack = va;
 
-  // Set up new context to start executing at forkret,
-  // which returns to user space.
+  //  Set up new context to start executing at forkret,
+  //  which returns to user space.
   memset(&p->context, 0, sizeof(p->context));
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
@@ -168,11 +186,23 @@ freeproc(struct proc *p)
   if (p->trapframe)
     kfree((void *)p->trapframe);
   p->trapframe = 0;
+  // 删除kernel stack
+  if (p->kstack)
+  {
+    pte_t *pte = walk(p->kernelPagetable, p->kstack, 0);
+    if (pte == 0)
+      panic("freeproc: kstack");
+    kfree((void *)PTE2PA(*pte));
+  }
+  p->kstack = 0;
   if (p->usyscall) // 用户 页要释放掉
     kfree((void *)p->usyscall);
   p->usyscall = 0;
   if (p->pagetable)
     proc_freepagetable(p->pagetable, p->sz);
+  // 删除kernel pagetable
+  if (p->kernelPagetable)
+    proc_freekpt(p->kernelPagetable);
   p->pagetable = 0;
   p->sz = 0;
   p->pid = 0;
@@ -183,7 +213,28 @@ freeproc(struct proc *p)
   p->xstate = 0;
   p->state = UNUSED;
 }
-
+void proc_freekpt(pagetable_t pagetable)
+{
+  // there are 2^9 = 512 PTEs in a page table.
+  for (int i = 0; i < 512; i++)
+  {
+    pte_t pte = pagetable[i];
+    if ((pte & PTE_V))
+    {
+      pagetable[i] = 0;
+      if ((pte & (PTE_R | PTE_W | PTE_X)) == 0)
+      {
+        uint64 child = PTE2PA(pte);
+        proc_freekpt((pagetable_t)child);
+      }
+    }
+    else if (pte & PTE_V)
+    {
+      panic("proc free kpt: leaf");
+    }
+  }
+  kfree((void *)pagetable);
+}
 // Create a user page table for a given process,
 // with no user memory, but with trampoline pages.
 pagetable_t
@@ -226,7 +277,43 @@ proc_pagetable(struct proc *p)
   }
   return pagetable;
 }
+pagetable_t
+proc_kernelPagetable(struct proc *p)
+{
 
+  pagetable_t kernelPagetable;
+  kernelPagetable = (pagetable_t)kalloc();
+  if (kernelPagetable == 0)
+    return 0;
+  memset(kernelPagetable, 0, PGSIZE);
+  if (kernelPagetable == 0)
+    return 0;
+  uvmmap(kernelPagetable, UART0, UART0, PGSIZE, PTE_R | PTE_W);
+  // virtio mmio disk interface
+  uvmmap(kernelPagetable, VIRTIO0, VIRTIO0, PGSIZE, PTE_R | PTE_W);
+  uvmmap(kernelPagetable, CLINT, CLINT, 0x10000, PTE_R | PTE_W);
+  // PLIC
+  uvmmap(kernelPagetable, PLIC, PLIC, 0x400000, PTE_R | PTE_W);
+
+  // map kernel text executable and read-only.
+  uvmmap(kernelPagetable, KERNBASE, KERNBASE, (uint64)etext - KERNBASE, PTE_R | PTE_X);
+
+  // map kernel data and the physical RAM we'll make use of.
+  uvmmap(kernelPagetable, (uint64)etext, (uint64)etext, PHYSTOP - (uint64)etext, PTE_R | PTE_W);
+
+  // map the trampoline for trap entry/exit to
+  // the highest virtual address in the kernel.
+  uvmmap(kernelPagetable, TRAMPOLINE, (uint64)trampoline, PGSIZE, PTE_R | PTE_X);
+  return kernelPagetable;
+}
+void uvmmap(pagetable_t pagetable, uint64 va, uint64 pa, uint64 sz, int perm)
+{
+  if (mappages(pagetable, va, sz,
+               pa, perm) != 0)
+  {
+    panic("kvmmp");
+  }
+}
 // Free a process's page table, and free the
 // physical memory it refers to.
 void proc_freepagetable(pagetable_t pagetable, uint64 sz)
@@ -494,8 +581,11 @@ void scheduler(void)
         // before jumping back to us.
         p->state = RUNNING;
         c->proc = p;
+        // 当前进程的kernel page存入satp中
+        w_satp(MAKE_SATP(p->kernelPagetable)); // 在swtch()切换进程前修改satp，保证进程执行期间用的是进程内核页表
+        sfence_vma();
         swtch(&c->context, &p->context);
-
+        kvminithart(); // 切换回内核的全局页表
         // Process is done running for now.
         // It should have changed its p->state before coming back.
         c->proc = 0;

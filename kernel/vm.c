@@ -83,9 +83,11 @@ walk(pagetable_t pagetable, uint64 va, int alloc)
 
   for (int level = 2; level > 0; level--) // 三级页表索引
   {
-    pte_t *pte = &pagetable[PX(level, va)];
-    if (*pte & PTE_V) // 这个地址无效的时候，在下面给这个地址分配页表
+    pte_t *pte = &pagetable[PX(level, va)]; // 具体计算方式通常涉及将虚拟地址分割为不同的部分，取出与当前级别相应的位段。
+    if (*pte & PTE_V)                       // 这个地址无效的时候，在下面给这个地址分配页表
     {
+      // PTE2PA 是一个宏或函数，用于将页表项 pte 转换为物理地址。
+      // 页表项通常包含了有效位、权限位以及物理页框的地址，通过 PTE2PA 可以提取出物理地址部分。
       pagetable = (pagetable_t)PTE2PA(*pte);
     }
     else
@@ -485,7 +487,7 @@ int vmpgaccess(pagetable_t pagetable, uint64 va)
   if (va >= MAXVA)
     return 0;
 
-  pte = walk(pagetable, va, 0);
+  pte = walk(pagetable, va, 0); // va是用户态的虚拟地址 walk可用用于查找用户态下的虚拟地址对应的物理地址
   if (pte == 0)
     return 0;
 
